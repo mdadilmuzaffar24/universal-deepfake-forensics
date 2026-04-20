@@ -117,24 +117,24 @@ if 'shap_plot' not in st.session_state:
 if 'processed_image_key' not in st.session_state:
     st.session_state.processed_image_key = None
 
-# --- LOAD MODELS (CLOUD-SMART) ---
+# --- LOAD MODELS (CLOUD-SMART WITH CACHE BYPASS) ---
 @st.cache_resource
 def load_forensics_model():
     model_dir = './models'
-    model_path = f'{model_dir}/xception_MASTER_rehearsal.keras'
+    # Renamed the file to force Streamlit to bypass its corrupted cache!
+    model_path = f'{model_dir}/xception_MASTER_clean_v3.keras'
     
-    # If the model is missing (e.g., on a fresh Streamlit Cloud server), download it
     if not os.path.exists(model_path):
-        st.info("☁️ Cloud Server Initializing: Downloading 238MB Rehearsal Model from Google Drive. Please wait...")
+        st.info("☁️ Cloud Server Initializing: Downloading fresh 238MB model to bypass cache...")
         os.makedirs(model_dir, exist_ok=True)
         
-        # REPLACE THIS with your actual Google Drive File ID
-        file_id = '14UTCVCF6lVpYyx-5hnzBZ9sVImmKjWvx' 
+        file_id = '14UTCVCF6lVpYyX-5hnzBZ9sVImmKjWvx' 
         url = f'https://drive.google.com/uc?id={file_id}'
         
         gdown.download(url, model_path, quiet=False)
         st.success("✅ Model Download Complete!")
 
+    # TF 2.17 handles Keras 3 natively. compile=False speeds up inference.
     return tf.keras.models.load_model(model_path, compile=False)
 
 @st.cache_resource
