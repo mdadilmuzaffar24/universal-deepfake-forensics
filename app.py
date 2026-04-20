@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 from mtcnn import MTCNN
 import shap
 import matplotlib.colors as mcolors
+import os
+import gdown
 
 # --- PAGE CONFIGURATION & CUSTOM CSS ---
 st.set_page_config(page_title="Deepfake Forensics Engine", page_icon="🛡️", layout="wide")
@@ -115,10 +117,25 @@ if 'shap_plot' not in st.session_state:
 if 'processed_image_key' not in st.session_state:
     st.session_state.processed_image_key = None
 
-# --- LOAD MODELS ---
+# --- LOAD MODELS (CLOUD-SMART) ---
 @st.cache_resource
 def load_forensics_model():
-    return tf.keras.models.load_model('./models/xception_MASTER_rehearsal.keras')
+    model_dir = './models'
+    model_path = f'{model_dir}/xception_MASTER_rehearsal.keras'
+    
+    # If the model is missing (e.g., on a fresh Streamlit Cloud server), download it
+    if not os.path.exists(model_path):
+        st.info("☁️ Cloud Server Initializing: Downloading 238MB Rehearsal Model from Google Drive. Please wait...")
+        os.makedirs(model_dir, exist_ok=True)
+        
+        # REPLACE THIS with your actual Google Drive File ID
+        file_id = '14UTCVCF6lVpYyx-5hnzBZ9sVImmKjWvx' 
+        url = f'https://drive.google.com/uc?id={file_id}'
+        
+        gdown.download(url, model_path, quiet=False)
+        st.success("✅ Model Download Complete!")
+
+    return tf.keras.models.load_model(model_path)
 
 @st.cache_resource
 def load_face_detector():
@@ -312,3 +329,5 @@ st.markdown("""
         Architected and Developed by <span>MD ADIL MUZAFFAR</span>
     </div>
 """, unsafe_allow_html=True)
+
+
