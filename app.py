@@ -8,7 +8,8 @@ import matplotlib.pyplot as plt
 from mtcnn import MTCNN
 import shap
 import matplotlib.colors as mcolors
-import gdown
+import urllib.request
+
 
 # --- PAGE CONFIGURATION & CUSTOM CSS ---
 st.set_page_config(page_title="Deepfake Forensics Engine", page_icon="🛡️", layout="wide")
@@ -117,24 +118,23 @@ if 'shap_plot' not in st.session_state:
 if 'processed_image_key' not in st.session_state:
     st.session_state.processed_image_key = None
 
-# --- LOAD MODELS (CLOUD-SMART WITH CACHE BYPASS) ---
+
+# --- LOAD MODELS (GITHUB RELEASES DIRECT DOWNLOAD) ---
 @st.cache_resource
 def load_forensics_model():
     model_dir = './models'
-    # Renamed the file to force Streamlit to bypass its corrupted cache!
-    model_path = f'{model_dir}/xception_MASTER_clean_v3.keras'
+    model_path = f'{model_dir}/xception_MASTER_rehearsal.keras'
     
     if not os.path.exists(model_path):
-        st.info("☁️ Cloud Server Initializing: Downloading fresh 238MB model to bypass cache...")
+        st.info("☁️ Cloud Server Initializing: Downloading 238MB model from GitHub Releases. Please wait...")
         os.makedirs(model_dir, exist_ok=True)
         
-        file_id = '14UTCVCF6lVpYyX-5hnzBZ9sVImmKjWvx' 
-        url = f'https://drive.google.com/uc?id={file_id}'
+        # PASTE YOUR COPIED GITHUB RELEASE LINK HERE
+        url = 'https://github.com/mdadilmuzaffar24/universal-deepfake-forensics/releases/download/v1.0/xception_MASTER_rehearsal.keras'
         
-        gdown.download(url, model_path, quiet=False)
+        urllib.request.urlretrieve(url, model_path)
         st.success("✅ Model Download Complete!")
 
-    # TF 2.17 handles Keras 3 natively. compile=False speeds up inference.
     return tf.keras.models.load_model(model_path, compile=False)
 
 @st.cache_resource

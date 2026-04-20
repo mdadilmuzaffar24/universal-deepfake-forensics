@@ -6,4 +6,3 @@ opencv-python-headless
 matplotlib
 mtcnn
 shap
-gdown
