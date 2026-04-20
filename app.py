@@ -1,3 +1,6 @@
+import os
+os.environ["TF_USE_LEGACY_KERAS"] = "1"  # Forces the server to use Keras 2
+
 import streamlit as st
 import tensorflow as tf
 from PIL import Image
