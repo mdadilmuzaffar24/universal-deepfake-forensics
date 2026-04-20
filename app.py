@@ -119,25 +119,52 @@ if 'processed_image_key' not in st.session_state:
     st.session_state.processed_image_key = None
 
 
-# --- LOAD MODELS (GITHUB RELEASES DIRECT DOWNLOAD) ---
-# --- LOAD MODELS (GITHUB RELEASES DIRECT DOWNLOAD) ---
+import os
+import urllib.request
+import streamlit as st
+import tensorflow as tf
+from tensorflow.keras import layers, models
+from tensorflow.keras.applications import Xception
+
+# --- 1. REBUILD THE SKELETON ---
+def build_forensics_model(input_shape=(299, 299, 3)):
+    # Load Xception with NO pre-trained weights (we will inject our own)
+    base_model = Xception(weights=None, include_top=False, input_shape=input_shape)
+
+    # Rebuild your exact classification head from Phase 2
+    x = base_model.output
+    x = layers.GlobalAveragePooling2D()(x)
+    x = layers.Dropout(0.5)(x) # 50% dropout 
+    predictions = layers.Dense(1, activation='sigmoid')(x)
+
+    model = models.Model(inputs=base_model.input, outputs=predictions)
+    return model
+
+# --- 2. INJECT THE BRAIN (WEIGHTS) ---
 @st.cache_resource
 def load_forensics_model():
     model_dir = './models'
-    model_path = f'{model_dir}/xception_MASTER_rehearsal.keras'
+    weights_path = f'{model_dir}/xception_weights_only.weights.h5'
     
-    if not os.path.exists(model_path):
-        st.info("☁️ Cloud Server Initializing: Downloading 238MB model from GitHub Releases...")
+    # Download the weights if they don't exist in the cloud container
+    if not os.path.exists(weights_path):
+        st.info("☁️ Cloud Server Initializing: Downloading weights from GitHub Releases...")
         os.makedirs(model_dir, exist_ok=True)
         
-        import urllib.request
-        # Ensure this is your exact GitHub Release link
-        url = 'https://github.com/mdadilmuzaffar24/universal-deepfake-forensics/releases/download/v1.0/xception_MASTER_rehearsal.keras'
-        urllib.request.urlretrieve(url, model_path)
+        # Fetching directly from your v2.0 GitHub Release
+        url = 'https://github.com/mdadilmuzaffar24/universal-deepfake-forensics/releases/download/v2.0/xception_weights_only.weights.h5'
+        urllib.request.urlretrieve(url, weights_path)
         st.success("✅ Model Download Complete!")
 
-    # Clean, native loading for TF 2.21.0
-    return tf.keras.models.load_model(model_path, compile=False)
+    # 1. Build the empty skeleton
+    model = build_forensics_model()
+    
+    # 2. Inject the raw mathematical weights seamlessly
+    # We use by_name=True to ensure the weights map perfectly to the layers
+    model.load_weights(weights_path, by_name=True, skip_mismatch=True)
+    model.trainable = False
+    
+    return model
 
 @st.cache_resource
 def load_face_detector():
@@ -153,26 +180,19 @@ except Exception as e:
 
 # --- GRAD-CAM ENGINE (REFINED SHARPNESS) ---
 def generate_gradcam(img_array, model, pred_value):
-    target_tensor = np.expand_dims(img_array, axis=0)
+    # 1. Rescale the input exactly how ImageDataGenerator did
+    x = np.expand_dims(img_array, axis=0) / 255.0
     
-    x = model.get_layer('Augmentation_Layer')(target_tensor, training=False)
-    x = model.get_layer('rescaling')(x)
-    
-    xception_base = model.get_layer('xception')
+    # 2. Xception layers are now directly accessible
     last_conv_layer_name = "block13_sepconv2_act"
     
-    inner_grad_model = tf.keras.models.Model(
-        [xception_base.inputs], 
-        [xception_base.get_layer(last_conv_layer_name).output, xception_base.output]
+    grad_model = tf.keras.models.Model(
+        [model.inputs], 
+        [model.get_layer(last_conv_layer_name).output, model.output]
     )
     
     with tf.GradientTape() as tape:
-        last_conv_output, xception_output = inner_grad_model(x)
-        tape.watch(last_conv_output)
-        
-        preds = model.get_layer('global_average_pooling2d')(xception_output)
-        preds = model.get_layer('dropout')(preds, training=False)
-        preds = model.get_layer('Forensic_Verdict')(preds)
+        last_conv_output, preds = grad_model(x)
         
         if pred_value < 0.5:
             class_channel = 1.0 - preds[:, 0]
@@ -201,45 +221,34 @@ def generate_gradcam(img_array, model, pred_value):
     overlay = heatmap_color * 0.5 + img_array_normalized * 0.5
     return np.clip(overlay, 0, 1)
 
-# --- SHAP EXPLAINER ENGINE (DEFINITIVE M.TECH BALANCE: 1000 EVALS, HIGH VISIBILITY) ---
+# --- SHAP EXPLAINER ENGINE ---
 def generate_shap_plot(img_array, model, max_evals=1000):
-    def predict_wrapper(x):
-        return model.predict(x, verbose=0)
+    # CRITICAL: Scale the SHAP batches to 0.0 - 1.0
+    def predict_wrapper(x_batch):
+        return model.predict(x_batch / 255.0, verbose=0)
     
     target_tensor = np.expand_dims(img_array, axis=0)
     
-    # Fast blur masker (tightened radius) is critical for hitting the fast execution target.
-    # It is roughly 100x faster than 'inpaint_telea'.
     masker = shap.maskers.Image("blur(10,10)", target_tensor[0].shape)
     explainer = shap.Explainer(predict_wrapper, masker, output_names=["Authenticity"])
     
-    # 1. Balanced resolution: 1000 evals is detailed without freezing local hardware.
     shap_values = explainer(target_tensor, max_evals=max_evals, batch_size=50)
     
-    # --- CUSTOM MATPLOTLIB VISUAL STACK ---
     plt.clf()
     fig, ax = plt.subplots(figsize=(5, 5))
     
-    # 2. Extract the face image as a standard grayscale backdrop.
     img_gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
-    
-    # 3. Apply a light Gaussian blur to the grayscale image so it doesn't distract.
-    # We set alpha=1.0 so the background features are fully clear and solid.
     img_backdrop = cv2.GaussianBlur(img_gray, (3, 3), 0)
     ax.imshow(img_backdrop, cmap='gray', alpha=1.0) 
     
-    # 4. Extract and sum raw spatial matrices.
     sv = shap_values.values[0]
     if len(sv.shape) == 4: 
         sv = sv[..., 0]
     sv_spatial = np.sum(sv, axis=-1)
     
-    # 5. Define Custom Red/Green Colormap.
     cmap = mcolors.LinearSegmentedColormap.from_list("RedGreen", ["#FF0000", "#FFFFFF", "#00FF00"])
     
-    # 6. Apply normalized translucent overlay (transparency set to 0.4).
     vmax = np.max(np.abs(sv_spatial))
-    # 'interpolation=bicubic' smooths the edges of the blocks slightly.
     im = ax.imshow(sv_spatial, cmap=cmap, vmin=-vmax, vmax=vmax, alpha=0.6, interpolation='bicubic')
     ax.axis('off')
     
@@ -273,9 +282,17 @@ if uploaded_file is not None:
         cropped_pil = Image.fromarray(cropped_face)
         img_resized = cropped_pil.resize((299, 299), resample=Image.NEAREST)
         img_array = np.array(img_resized)  
+        
+        # 1. Prepare the tensor
         target_tensor = np.expand_dims(img_array, axis=0)
         
-        prediction = model.predict(target_tensor, verbose=0)[0][0]
+        # 2. CRITICAL: Rescale the tensor for the prediction
+        target_tensor_scaled = target_tensor / 255.0
+        
+        # 3. Feed the scaled tensor to the model
+        prediction = model.predict(target_tensor_scaled, verbose=0)[0][0]
+        
+        # 4. Generate Grad-CAM (passing the unscaled img_array is fine, it scales internally)
         overlay_image = generate_gradcam(img_array, model, prediction)
 
     st.subheader("Architectural Verdict")
