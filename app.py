@@ -1,6 +1,4 @@
 import os
-os.environ["TF_USE_LEGACY_KERAS"] = "1"  # Forces the server to use Keras 2
-
 import streamlit as st
 import tensorflow as tf
 from PIL import Image
@@ -10,7 +8,6 @@ import matplotlib.pyplot as plt
 from mtcnn import MTCNN
 import shap
 import matplotlib.colors as mcolors
-import os
 import gdown
 
 # --- PAGE CONFIGURATION & CUSTOM CSS ---
@@ -138,8 +135,7 @@ def load_forensics_model():
         gdown.download(url, model_path, quiet=False)
         st.success("✅ Model Download Complete!")
 
-    # Force Keras to bypass the strict path deserialization checks
-    return tf.keras.models.load_model(model_path, compile=False, safe_mode=False)
+    return tf.keras.models.load_model(model_path, compile=False)
 
 @st.cache_resource
 def load_face_detector():
