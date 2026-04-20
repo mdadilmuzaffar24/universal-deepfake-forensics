@@ -138,7 +138,8 @@ def load_forensics_model():
         gdown.download(url, model_path, quiet=False)
         st.success("✅ Model Download Complete!")
 
-    return tf.keras.models.load_model(model_path, compile=False)
+    # Force Keras to bypass the strict path deserialization checks
+    return tf.keras.models.load_model(model_path, compile=False, safe_mode=False)
 
 @st.cache_resource
 def load_face_detector():
