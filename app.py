@@ -125,16 +125,15 @@ import streamlit as st
 import tensorflow as tf
 from tensorflow.keras import layers, models
 from tensorflow.keras.applications import Xception
+from mtcnn import MTCNN
 
-# --- 1. REBUILD THE SKELETON ---
+# --- 1. REBUILD THE SKELETON (This is what got deleted!) ---
 def build_forensics_model(input_shape=(299, 299, 3)):
-    # Load Xception with NO pre-trained weights (we will inject our own)
     base_model = Xception(weights=None, include_top=False, input_shape=input_shape)
 
-    # Rebuild your exact classification head from Phase 2
     x = base_model.output
     x = layers.GlobalAveragePooling2D()(x)
-    x = layers.Dropout(0.5)(x) # 50% dropout 
+    x = layers.Dropout(0.5)(x) 
     predictions = layers.Dense(1, activation='sigmoid')(x)
 
     model = models.Model(inputs=base_model.input, outputs=predictions)
@@ -146,20 +145,16 @@ def load_forensics_engine_v2():
     model_dir = './models'
     weights_path = f'{model_dir}/xception_weights_only.weights.h5'
     
-    # Download the weights if they don't exist in the cloud container
     if not os.path.exists(weights_path):
         st.info("☁️ Cloud Server Initializing: Downloading weights from GitHub Releases...")
         os.makedirs(model_dir, exist_ok=True)
         
-        # Fetching directly from your v2.0 GitHub Release
         url = 'https://github.com/mdadilmuzaffar24/universal-deepfake-forensics/releases/download/v2.0/xception_weights_only.weights.h5'
         urllib.request.urlretrieve(url, weights_path)
         st.success("✅ Model Download Complete!")
 
-    # 1. Build the empty skeleton
+    # Now it knows exactly what build_forensics_model is!
     model = build_forensics_model()
-    
-    # 2. Inject the raw mathematical weights seamlessly
     model.load_weights(weights_path, by_name=True, skip_mismatch=True)
     model.trainable = False
     
@@ -170,13 +165,14 @@ def load_face_detector():
     return MTCNN()
 
 try:
-    # CRITICAL: Call the newly named v2 function!
     model = load_forensics_engine_v2()
     detector = load_face_detector()
     st.sidebar.success("✅ Universal Framework Loaded")
     st.sidebar.success("✅ MTCNN Geometry Engine Loaded")
 except Exception as e:
     st.sidebar.error(f"Engine Load Error: {e}")
+
+# ... (Keep your generate_gradcam and everything else below here) ...
 
 # --- GRAD-CAM ENGINE (REFINED SHARPNESS) ---
 def generate_gradcam(img_array, model, pred_value):
