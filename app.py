@@ -120,21 +120,23 @@ if 'processed_image_key' not in st.session_state:
 
 
 # --- LOAD MODELS (GITHUB RELEASES DIRECT DOWNLOAD) ---
+# --- LOAD MODELS (GITHUB RELEASES DIRECT DOWNLOAD) ---
 @st.cache_resource
 def load_forensics_model():
     model_dir = './models'
     model_path = f'{model_dir}/xception_MASTER_rehearsal.keras'
     
     if not os.path.exists(model_path):
-        st.info("☁️ Cloud Server Initializing: Downloading 238MB model from GitHub Releases. Please wait...")
+        st.info("☁️ Cloud Server Initializing: Downloading 238MB model from GitHub Releases...")
         os.makedirs(model_dir, exist_ok=True)
         
-        # PASTE YOUR COPIED GITHUB RELEASE LINK HERE
+        import urllib.request
+        # Ensure this is your exact GitHub Release link
         url = 'https://github.com/mdadilmuzaffar24/universal-deepfake-forensics/releases/download/v1.0/xception_MASTER_rehearsal.keras'
-        
         urllib.request.urlretrieve(url, model_path)
         st.success("✅ Model Download Complete!")
 
+    # Clean, native loading for TF 2.21.0
     return tf.keras.models.load_model(model_path, compile=False)
 
 @st.cache_resource
