@@ -1,0 +1,17 @@
+# Environments
+venv/
+env/
+.env
+
+# Python Cache
+__pycache__/
+*.pyc
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Heavy Deep Learning Models
+*.keras
+*.h5
+models/
