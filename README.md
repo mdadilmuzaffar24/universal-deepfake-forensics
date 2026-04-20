@@ -13,7 +13,12 @@ An enterprise-grade, end-to-end deep learning framework designed to detect AI-ge
   * **Targeted DeepSHAP:** Instantaneous neural backpropagation (Gradient x Input) isolating the top 30% of mathematical anomalies pushing the network's verdict.
 
 ### ⚙️ Local Installation
-1. Clone the repository: `git clone https://github.com/yourusername/deepfake-forensics.git`
+1. Clone the repository: `git clone https://github.com/mdadilmuzaffar24/universal-deepfake-forensics.git`
 2. Create a virtual environment: `python -m venv venv`
 3. Activate the environment and install dependencies: `pip install -r requirements.txt`
 4. Launch the dashboard: `streamlit run app.py`
+
+### 📥 Model Download
+Due to GitHub's file size limits, the 238MB Rehearsal-Trained Xception model is hosted on Google Drive. 
+* [Download the .keras model here](https://drive.google.com/file/d/14UTCVCF6lVpYyx-5hnzBZ9sVImmKjWvx/view?usp=sharing)
+* Place the downloaded file inside a `models/` directory in the root of this project before running `app.py`.

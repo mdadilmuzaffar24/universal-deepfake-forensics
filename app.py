@@ -140,9 +140,9 @@ def build_forensics_model(input_shape=(299, 299, 3)):
     model = models.Model(inputs=base_model.input, outputs=predictions)
     return model
 
-# --- 2. INJECT THE BRAIN (WEIGHTS) ---
+# --- 2. INJECT THE BRAIN (CACHE-BUSTED) ---
 @st.cache_resource
-def load_forensics_model():
+def load_forensics_engine_v2():
     model_dir = './models'
     weights_path = f'{model_dir}/xception_weights_only.weights.h5'
     
@@ -160,7 +160,6 @@ def load_forensics_model():
     model = build_forensics_model()
     
     # 2. Inject the raw mathematical weights seamlessly
-    # We use by_name=True to ensure the weights map perfectly to the layers
     model.load_weights(weights_path, by_name=True, skip_mismatch=True)
     model.trainable = False
     
@@ -171,7 +170,8 @@ def load_face_detector():
     return MTCNN()
 
 try:
-    model = load_forensics_model()
+    # CRITICAL: Call the newly named v2 function!
+    model = load_forensics_engine_v2()
     detector = load_face_detector()
     st.sidebar.success("✅ Universal Framework Loaded")
     st.sidebar.success("✅ MTCNN Geometry Engine Loaded")
