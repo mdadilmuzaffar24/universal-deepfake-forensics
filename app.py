@@ -95,6 +95,16 @@ st.markdown("""
 st.title("🛡️ Universal Deepfake Forensics Engine")
 st.markdown("Upload a high-fidelity image. The engine will isolate facial geometry and perform a textural audit.")
 
+# --- SIDEBAR: HOW IT WORKS ---
+with st.sidebar:
+    st.header("⚙️ Engine Architecture")
+    st.markdown("This framework utilizes a 3-step media forensics pipeline:")
+    st.markdown("1. **Geometric Isolation:** MTCNN detects and isolates the facial geometry, discarding irrelevant background data.")
+    st.markdown("2. **Textural Audit:** A transfer-learned Xception network analyzes the face for microscopic blending seams and GAN artifacts.")
+    st.markdown("3. **Explainable AI (XAI):** Grad-CAM and SHAP visualize the exact regions and pixels driving the network's verdict.")
+    st.markdown("---")
+    st.info("Capstone Project Framework")
+
 # --- INITIALIZE SESSION STATE ---
 if 'shap_executed' not in st.session_state:
     st.session_state.shap_executed = False
@@ -242,96 +252,156 @@ def generate_shap_plot(img_array, model, max_evals=1000):
     return fig
 
 # --- UI WORKFLOW ---
-uploaded_file = st.file_uploader("Drop a target image here...", type=["jpg", "png", "jpeg"])
+# --- UI WORKFLOW (TABBED INTERFACE) ---
+# Create two professional tabs
+tab1, tab2 = st.tabs(["🛡️ Forensics Scanner", "📊 Architecture & Metrics"])
 
-# Add a disclaimer so users understand the model's exact capabilities
-st.caption("ℹ️ **Engine Scope:** This framework is trained on high-fidelity deepfake datasets (e.g., DFDC) to detect facial manipulation, blending boundaries, and face-swaps. It is not designed to detect fully synthetic AI-generated art (e.g., Midjourney, DALL-E) where no facial blending occurred.")
+# ==========================================
+# TAB 1: THE MAIN SCANNER
+# ==========================================
+with tab1:
+    # Update the uploader
+    uploaded_file = st.file_uploader(
+        "Drop a target image here...", 
+        type=["jpg", "png", "jpeg"], 
+        help="Upload a clear, front-facing image. The engine requires a visible human face to perform the textural audit."
+    )
 
-if uploaded_file is not None:
-    current_image_key = f"{uploaded_file.name}_{uploaded_file.size}"
-    if st.session_state.processed_image_key != current_image_key:
-        st.session_state.shap_executed = False
-        st.session_state.shap_plot = None
-        st.session_state.processed_image_key = current_image_key
+    st.caption("ℹ️ **Engine Scope:** This framework is trained on high-fidelity deepfake datasets to detect facial manipulation, blending boundaries, and face-swaps. It is not designed to detect fully synthetic AI-generated art (e.g., Midjourney) where no facial blending occurred.")
 
-    st.markdown("---")
-    pil_image = Image.open(uploaded_file).convert('RGB')
-    
-    with st.spinner("Executing textural audit (automatic mode)..."):
-        img_array_raw = np.array(pil_image)
+    if uploaded_file is not None:
+        current_image_key = f"{uploaded_file.name}_{uploaded_file.size}"
+        if st.session_state.processed_image_key != current_image_key:
+            st.session_state.shap_executed = False
+            st.session_state.shap_plot = None
+            st.session_state.processed_image_key = current_image_key
+
+        st.markdown("---")
+        pil_image = Image.open(uploaded_file).convert('RGB')
         
-        # 1. MTCNN Geometry Audit
-        faces = detector.detect_faces(img_array_raw)
-        
-        # 2. THE HARD STOP GATEKEEPER
-        if not faces:
-            st.error("🚨 Architectural Rejection: No human face detected.")
-            st.warning("This engine requires a visible human face to perform a deepfake textural audit. Please upload an image containing a clear facial subject.")
-            st.stop() # This halts the app completely so it doesn't feed bad data to the model!
+        with st.spinner("Executing textural audit (automatic mode)..."):
+            img_array_raw = np.array(pil_image)
+            faces = detector.detect_faces(img_array_raw)
             
-        # 3. Proceed if face is found
-        x, y, w, h = faces[0]['box']
-        x, y = max(0, x), max(0, y)
-        cropped_face = img_array_raw[y:y+h, x:x+w]
+            if not faces:
+                st.error("🚨 Architectural Rejection: No human face detected.")
+                st.warning("This engine requires a visible human face to perform a deepfake textural audit. Please upload an image containing a clear facial subject.")
+                st.stop()
+                
+            x, y, w, h = faces[0]['box']
+            x, y = max(0, x), max(0, y)
+            cropped_face = img_array_raw[y:y+h, x:x+w]
 
-        cropped_pil = Image.fromarray(cropped_face)
-        img_resized = cropped_pil.resize((299, 299), resample=Image.NEAREST)
-        img_array = np.array(img_resized)  
+            cropped_pil = Image.fromarray(cropped_face)
+            img_resized = cropped_pil.resize((299, 299), resample=Image.NEAREST)
+            img_array = np.array(img_resized)  
+            
+            target_tensor = np.expand_dims(img_array, axis=0)
+            
+            prediction = model.predict(target_tensor, verbose=0)[0][0]
+            overlay_image = generate_gradcam(img_array, model, prediction)
+
+        st.subheader("Architectural Verdict")
+        if prediction > 0.70:
+            st.markdown('<p class="status-success">✅ AUTHENTIC MEDIA (HIGH CONFIDENCE)</p>', unsafe_allow_html=True)
+            # Add tooltip here
+            st.metric(label="Authenticity Score", value=f"{prediction * 100:.2f}%", help="100% indicates zero detected manipulation. Scores above 70% are considered highly authentic.")
+            verdict_text = "The network found no traces of algorithmic facial manipulation or blending seams."
+        elif prediction < 0.30:
+            st.markdown('<p class="status-danger">🚨 DEEPFAKE DETECTED (HIGH CONFIDENCE)</p>', unsafe_allow_html=True)
+            # Add tooltip here
+            st.metric(label="Manipulation Score", value=f"{(1.0 - prediction) * 100:.2f}%", help="Higher scores indicate a higher probability of mathematical anomalies and blending seams.")
+        else:
+            st.markdown('<p class="status-warning">⚠️ SUSPICIOUS MEDIA (HUMAN REVIEW REQUIRED)</p>', unsafe_allow_html=True)
+            conf = max(prediction, 1.0 - prediction) * 100
+            st.metric(label="Inconclusive Confidence", value=f"{conf:.2f}%")
+            verdict_text = "Proceed with caution. The network cannot definitively verify facial authenticity."
+
+        st.write(verdict_text)
+        # Update the XAI subheader
+        st.markdown(
+            "### Explainable AI (XAI) Evidence", 
+            help="XAI provides transparent, visual proof of how the neural network arrived at its decision, ensuring the results are trustworthy rather than a 'black box'."
+        )
         
-        target_tensor = np.expand_dims(img_array, axis=0)
+        col1, col2, col3 = st.columns(3)
         
-        prediction = model.predict(target_tensor, verbose=0)[0][0]
-        overlay_image = generate_gradcam(img_array, model, prediction)
+        with col1:
+            st.caption("1. MTCNN Isolated Target")
+            st.image(cropped_pil, use_container_width=True)
+            
+        with col2:
+            st.caption("2. Grad-CAM (Heatmap)")
+            st.image(overlay_image, use_container_width=True, clamp=True)
+            st.markdown("*Highlights localized textural blending errors.*")
+            
+        with col3:
+            st.caption("3. SHAP (Pixel Attribution)")
+            if not st.session_state.shap_executed:
+                st.info("SHAP analysis is computationally intensive. Click below to execute detailed attribute modeling (~45s).")
+                if st.button("Execute Detailed Attribute Analysis"):
+                    with st.spinner("Executing 1000 SHAP evaluations..."):
+                        shap_figure = generate_shap_plot(img_array, model, max_evals=1000)
+                        st.session_state.shap_plot = shap_figure
+                        st.session_state.shap_executed = True
+                        st.rerun()
 
-    st.subheader("Architectural Verdict")
-    if prediction > 0.70:
-        st.markdown('<p class="status-success">✅ AUTHENTIC MEDIA (HIGH CONFIDENCE)</p>', unsafe_allow_html=True)
-        st.metric(label="Authenticity Score", value=f"{prediction * 100:.2f}%")
-        verdict_text = "The network found no traces of algorithmic facial manipulation or blending seams."
-    elif prediction < 0.30:
-        st.markdown('<p class="status-danger">🚨 DEEPFAKE DETECTED (HIGH CONFIDENCE)</p>', unsafe_allow_html=True)
-        st.metric(label="Manipulation Score", value=f"{(1.0 - prediction) * 100:.2f}%")
-        verdict_text = "The network detected mathematical anomalies and facial blending seams."
-    else:
-        st.markdown('<p class="status-warning">⚠️ SUSPICIOUS MEDIA (HUMAN REVIEW REQUIRED)</p>', unsafe_allow_html=True)
-        conf = max(prediction, 1.0 - prediction) * 100
-        st.metric(label="Inconclusive Confidence", value=f"{conf:.2f}%")
-        verdict_text = "Proceed with caution. The network cannot definitively verify facial authenticity."
+            if st.session_state.shap_executed:
+                st.pyplot(st.session_state.shap_plot, use_container_width=True)
+                st.markdown("*Red pixels push toward Fake, Green pixels push toward Authentic.*")
 
-    st.write(verdict_text)
+# ==========================================
+# TAB 2: ARCHITECTURE & METRICS
+# ==========================================
+with tab2:
+    st.header("Interpretable and Trustworthy Deepfake Detection Framework")
+    st.markdown("**Leveraging Transfer-Learned CNNs with Grad-CAM and SHAP for Robust Media Forensics**")
+    
     st.markdown("---")
     
-    st.subheader("Explainable AI (XAI) Evidence")
-    col1, col2, col3 = st.columns(3)
+    st.subheader("Core Architecture")
+    st.markdown("""
+    This engine is built on a dual-phase pipeline designed for both accuracy and transparency:
+    1. **Geometric Isolation:** An MTCNN (Multi-Task Cascaded Convolutional Neural Network) detects and extracts facial geometry to remove background noise.
+    2. **Feature Extraction:** A heavily fine-tuned **Xception** (and parallel ResNet50 experimental) architecture serves as the backbone. The model utilizes transfer learning to identify microscopic blending artifacts left behind by GANs and autoencoders.
+    3. **Explainable AI (XAI):** Decisions are mapped visually using Grad-CAM (Gradient-weighted Class Activation Mapping) for spatial localization and SHAP (SHapley Additive exPlanations) for pixel-level feature attribution.
+    """)
     
-    with col1:
-        st.caption("1. MTCNN Isolated Target")
-        st.image(cropped_pil, use_container_width=True)
+    st.markdown("---")
+    
+    st.subheader("Training Performance & Metrics")
+    
+    # We create two columns to display your Colab graphs side-by-side
+    # --- ROW 1: Accuracy & Loss ---
+    graph_col1, graph_col2 = st.columns(2)
+    with graph_col1:
+        st.markdown("##### Training vs. Validation Accuracy")
+        st.image("assets/accuracy_graph.png", use_container_width=True)
+    with graph_col2:
+        st.markdown("##### Model Loss Progression")
+        st.image("assets/loss_graph.png", use_container_width=True)
         
-    with col2:
-        st.caption("2. Grad-CAM (Heatmap)")
-        st.image(overlay_image, use_container_width=True, clamp=True)
-        st.markdown("*Highlights localized textural blending errors.*")
+    st.markdown("---")
+    
+    # --- ROW 2: Confusion Matrix & ROC ---
+    metric_col1, metric_col2 = st.columns(2)
+    with metric_col1:
+        st.markdown("##### Validation Confusion Matrix")
+        st.image("assets/confusion_matrix.png", use_container_width=True)
+        st.caption("Demonstrates high True Positive/Negative rates with minimal misclassification.")
+    with metric_col2:
+        st.markdown("##### Receiver Operating Characteristic")
+        st.image("assets/roc_curve.png", use_container_width=True)
+        st.caption("An exceptional AUC of 0.9989, proving robust class separability.")
         
-    with col3:
-        st.caption("3. SHAP (Pixel Attribution)")
-        if not st.session_state.shap_executed:
-            st.info("SHAP analysis is computationally intensive. Click below to execute detailed attribute modeling (~45s).")
-            if st.button("Execute Detailed Attribute Analysis"):
-                with st.spinner("Executing 1000 SHAP evaluations..."):
-                    shap_figure = generate_shap_plot(img_array, model, max_evals=1000)
-                    st.session_state.shap_plot = shap_figure
-                    st.session_state.shap_executed = True
-                    st.rerun()
+    st.markdown("---")
+    st.markdown("""
+    *The framework ensures high-fidelity media authentication by prioritizing model interpretability alongside raw predictive power.*
+    """)
 
-        if st.session_state.shap_executed:
-            st.pyplot(st.session_state.shap_plot, use_container_width=True)
-            st.markdown("*Red pixels push toward Fake, Green pixels push toward Authentic.*")
-
+# --- GLOBAL FOOTER ---
 st.markdown("""
     <div class="custom-footer">
         Architected and Developed by <span>MD ADIL MUZAFFAR</span>
     </div>
 """, unsafe_allow_html=True)
-
-
