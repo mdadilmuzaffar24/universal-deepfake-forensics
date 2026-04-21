@@ -244,6 +244,9 @@ def generate_shap_plot(img_array, model, max_evals=1000):
 # --- UI WORKFLOW ---
 uploaded_file = st.file_uploader("Drop a target image here...", type=["jpg", "png", "jpeg"])
 
+# Add a disclaimer so users understand the model's exact capabilities
+st.caption("ℹ️ **Engine Scope:** This framework is trained on high-fidelity deepfake datasets (e.g., DFDC) to detect facial manipulation, blending boundaries, and face-swaps. It is not designed to detect fully synthetic AI-generated art (e.g., Midjourney, DALL-E) where no facial blending occurred.")
+
 if uploaded_file is not None:
     current_image_key = f"{uploaded_file.name}_{uploaded_file.size}"
     if st.session_state.processed_image_key != current_image_key:
@@ -256,15 +259,20 @@ if uploaded_file is not None:
     
     with st.spinner("Executing textural audit (automatic mode)..."):
         img_array_raw = np.array(pil_image)
+        
+        # 1. MTCNN Geometry Audit
         faces = detector.detect_faces(img_array_raw)
         
-        if faces:
-            x, y, w, h = faces[0]['box']
-            x, y = max(0, x), max(0, y)
-            cropped_face = img_array_raw[y:y+h, x:x+w]
-        else:
-            cropped_face = img_array_raw
-            st.sidebar.warning("⚠️ MTCNN failed to detect face. Analyzing full frame.")
+        # 2. THE HARD STOP GATEKEEPER
+        if not faces:
+            st.error("🚨 Architectural Rejection: No human face detected.")
+            st.warning("This engine requires a visible human face to perform a deepfake textural audit. Please upload an image containing a clear facial subject.")
+            st.stop() # This halts the app completely so it doesn't feed bad data to the model!
+            
+        # 3. Proceed if face is found
+        x, y, w, h = faces[0]['box']
+        x, y = max(0, x), max(0, y)
+        cropped_face = img_array_raw[y:y+h, x:x+w]
 
         cropped_pil = Image.fromarray(cropped_face)
         img_resized = cropped_pil.resize((299, 299), resample=Image.NEAREST)
@@ -279,16 +287,16 @@ if uploaded_file is not None:
     if prediction > 0.70:
         st.markdown('<p class="status-success">✅ AUTHENTIC MEDIA (HIGH CONFIDENCE)</p>', unsafe_allow_html=True)
         st.metric(label="Authenticity Score", value=f"{prediction * 100:.2f}%")
-        verdict_text = "The network found no traces of algorithmic manipulation."
+        verdict_text = "The network found no traces of algorithmic facial manipulation or blending seams."
     elif prediction < 0.30:
         st.markdown('<p class="status-danger">🚨 DEEPFAKE DETECTED (HIGH CONFIDENCE)</p>', unsafe_allow_html=True)
         st.metric(label="Manipulation Score", value=f"{(1.0 - prediction) * 100:.2f}%")
-        verdict_text = "The network detected mathematical anomalies and blending seams."
+        verdict_text = "The network detected mathematical anomalies and facial blending seams."
     else:
         st.markdown('<p class="status-warning">⚠️ SUSPICIOUS MEDIA (HUMAN REVIEW REQUIRED)</p>', unsafe_allow_html=True)
         conf = max(prediction, 1.0 - prediction) * 100
         st.metric(label="Inconclusive Confidence", value=f"{conf:.2f}%")
-        verdict_text = "Proceed with caution. The network cannot definitively verify authenticity."
+        verdict_text = "Proceed with caution. The network cannot definitively verify facial authenticity."
 
     st.write(verdict_text)
     st.markdown("---")
