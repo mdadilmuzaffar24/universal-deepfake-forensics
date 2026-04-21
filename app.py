@@ -311,6 +311,8 @@ with tab1:
             st.markdown('<p class="status-danger">🚨 DEEPFAKE DETECTED (HIGH CONFIDENCE)</p>', unsafe_allow_html=True)
             # Add tooltip here
             st.metric(label="Manipulation Score", value=f"{(1.0 - prediction) * 100:.2f}%", help="Higher scores indicate a higher probability of mathematical anomalies and blending seams.")
+            # THIS IS THE MISSING LINE WE ARE ADDING BACK:
+            verdict_text = "The network detected mathematical anomalies and facial blending seams."
         else:
             st.markdown('<p class="status-warning">⚠️ SUSPICIOUS MEDIA (HUMAN REVIEW REQUIRED)</p>', unsafe_allow_html=True)
             conf = max(prediction, 1.0 - prediction) * 100
