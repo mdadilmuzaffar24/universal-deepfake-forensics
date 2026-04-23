@@ -130,3 +130,13 @@ Currently, the Xception backbone acts as a highly specialized localized texture-
 **MD ADIL MUZAFFAR** | Built as an M.Tech Data Science Capstone Project.
 
 ---
+
+### 📬 Contact
+
+* **Md Adil Muzaffar**
+* 📧 [adilmuzaffar96@gmail.com](mailto:adilmuzaffar96@gmail.com)
+* 📱 +91 8507053209
+* 🌐 [LinkedIn](https://www.linkedin.com/in/mdadilmuzaffar/) | [GitHub](https://github.com/mdadilmuzaffar24) | [Portfolio](https://md-adil-muzaffar-portfolia.lovable.app/)
+
+---
+
