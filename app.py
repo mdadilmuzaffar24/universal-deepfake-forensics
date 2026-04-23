@@ -261,24 +261,47 @@ tab1, tab2 = st.tabs(["🛡️ Forensics Scanner", "📊 Architecture & Metrics"
 # ==========================================
 with tab1:
     # Update the uploader
+    # --- IMAGE UPLOAD & SAMPLE SECTION ---
     uploaded_file = st.file_uploader(
         "Drop a target image here...", 
         type=["jpg", "png", "jpeg"], 
         help="Upload a clear, front-facing image. The engine requires a visible human face to perform the textural audit."
     )
+    
+    st.markdown("<p style='text-align: center; color: #8b9bb4; font-size: 14px; margin-top: -10px;'>Or execute an audit on benchmark data:</p>", unsafe_allow_html=True)
+    
+    sample_col1, sample_col2, sample_col3 = st.columns(3)
+    pil_image = None
+    
+    with sample_col1:
+        if st.button("🟢 Authentic Benchmark"):
+            pil_image = Image.open("assets/sample_real.jpg").convert('RGB')
+            current_image_key = "sample_real"
+    with sample_col2:
+        if st.button("🔴 Deepfake Benchmark"):
+            pil_image = Image.open("assets/sample_fake.jpg").convert('RGB')
+            current_image_key = "sample_fake"
+    with sample_col3:
+        if st.button("🟡 Edge-Case Benchmark"):
+            pil_image = Image.open("assets/sample_sus.jpg").convert('RGB')
+            current_image_key = "sample_sus"
 
     st.caption("ℹ️ **Engine Scope:** This framework is trained on high-fidelity deepfake datasets to detect facial manipulation, blending boundaries, and face-swaps. It is not designed to detect fully synthetic AI-generated art (e.g., Midjourney) where no facial blending occurred.")
 
+    # Check if user uploaded a file OR clicked a sample button
     if uploaded_file is not None:
+        pil_image = Image.open(uploaded_file).convert('RGB')
         current_image_key = f"{uploaded_file.name}_{uploaded_file.size}"
+
+    # Proceed if any image was loaded
+    if pil_image is not None:
         if st.session_state.processed_image_key != current_image_key:
             st.session_state.shap_executed = False
             st.session_state.shap_plot = None
             st.session_state.processed_image_key = current_image_key
 
         st.markdown("---")
-        pil_image = Image.open(uploaded_file).convert('RGB')
-        
+        # ... (THE REST OF YOUR GRAD-CAM CODE REMAINS EXACTLY THE SAME BELOW HERE) ...
         with st.spinner("Executing textural audit (automatic mode)..."):
             img_array_raw = np.array(pil_image)
             faces = detector.detect_faces(img_array_raw)
