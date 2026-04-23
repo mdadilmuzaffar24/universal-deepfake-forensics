@@ -1,5 +1,8 @@
 # 🛡️ Universal Deepfake Forensics Engine
 
+<img width="1024" height="559" alt="image" src="https://github.com/user-attachments/assets/a8916cdb-5934-4e21-80b1-4b585750a47e" />
+
+
 ![Python](https://img.shields.io/badge/Python-3.11-blue.svg)
 ![TensorFlow](https://img.shields.io/badge/TensorFlow-2.15+-FF6F00.svg)
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.32+-FF4B4B.svg)
