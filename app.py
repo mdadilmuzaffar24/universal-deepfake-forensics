@@ -19,7 +19,7 @@ st.set_page_config(page_title="Deepfake Forensics Engine", page_icon="🛡️", 
 
 st.markdown("""
     <style>
-    [data-testid="stHeader"] { display: none !important; }
+    
     footer { display: none !important; }
     .stDeployButton { display: none !important; }
     [data-testid="stAppViewContainer"], .stApp {
