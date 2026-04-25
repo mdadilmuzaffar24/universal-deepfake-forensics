@@ -11,6 +11,8 @@ import shap
 import matplotlib.colors as mcolors
 from tensorflow.keras import layers, models
 from tensorflow.keras.applications import Xception
+import random
+import glob
 
 # --- PAGE CONFIGURATION & CUSTOM CSS ---
 st.set_page_config(page_title="Deepfake Forensics Engine", page_icon="🛡️", layout="wide")
@@ -261,37 +263,62 @@ tab1, tab2 = st.tabs(["🛡️ Forensics Scanner", "📊 Architecture & Metrics"
 # ==========================================
 with tab1:
     # Update the uploader
-    # --- IMAGE UPLOAD & SAMPLE SECTION ---
     uploaded_file = st.file_uploader(
         "Drop a target image here...", 
         type=["jpg", "png", "jpeg"], 
         help="Upload a clear, front-facing image. The engine requires a visible human face to perform the textural audit."
     )
-    
+
     st.markdown("<p style='text-align: center; color: #8b9bb4; font-size: 14px; margin-top: -10px;'>Or execute an audit on benchmark data:</p>", unsafe_allow_html=True)
     
+    # Initialize session state to "remember" the benchmark image when SHAP is clicked
+    if 'benchmark_image_path' not in st.session_state:
+        st.session_state.benchmark_image_path = None
+
     sample_col1, sample_col2, sample_col3 = st.columns(3)
-    pil_image = None
     
+    # Helper function to grab a random image from a folder
+    def get_random_image(folder_path):
+        valid_extensions = ('*.jpg', '*.jpeg', '*.png')
+        files = []
+        for ext in valid_extensions:
+            files.extend(glob.glob(os.path.join(folder_path, ext)))
+        return random.choice(files) if files else None
+
+    # Benchmark Buttons
     with sample_col1:
         if st.button("🟢 Authentic Benchmark"):
-            pil_image = Image.open("assets/sample_real.jpg").convert('RGB')
-            current_image_key = "sample_real"
+            random_img = get_random_image("assets/real")
+            if random_img:
+                st.session_state.benchmark_image_path = random_img
+                st.session_state.shap_executed = False # Reset SHAP for new image
+                
     with sample_col2:
         if st.button("🔴 Deepfake Benchmark"):
-            pil_image = Image.open("assets/sample_fake.jpg").convert('RGB')
-            current_image_key = "sample_fake"
+            random_img = get_random_image("assets/fake")
+            if random_img:
+                st.session_state.benchmark_image_path = random_img
+                st.session_state.shap_executed = False 
+                
     with sample_col3:
         if st.button("🟡 Edge-Case Benchmark"):
-            pil_image = Image.open("assets/sample_sus.jpg").convert('RGB')
-            current_image_key = "sample_sus"
+            random_img = get_random_image("assets/edge")
+            if random_img:
+                st.session_state.benchmark_image_path = random_img
+                st.session_state.shap_executed = False 
 
     st.caption("ℹ️ **Engine Scope:** This framework is trained on high-fidelity deepfake datasets to detect facial manipulation, blending boundaries, and face-swaps. It is not designed to detect fully synthetic AI-generated art (e.g., Midjourney) where no facial blending occurred.")
 
-    # Check if user uploaded a file OR clicked a sample button
+    pil_image = None
+
+    # Logic to determine which image to process: Uploads take priority over benchmarks
     if uploaded_file is not None:
         pil_image = Image.open(uploaded_file).convert('RGB')
         current_image_key = f"{uploaded_file.name}_{uploaded_file.size}"
+        st.session_state.benchmark_image_path = None # Clear benchmark memory if user uploads manually
+    elif st.session_state.benchmark_image_path is not None:
+        pil_image = Image.open(st.session_state.benchmark_image_path).convert('RGB')
+        current_image_key = st.session_state.benchmark_image_path
 
     # Proceed if any image was loaded
     if pil_image is not None:
