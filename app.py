@@ -288,21 +288,24 @@ with tab1:
     # Benchmark Buttons
     with sample_col1:
         if st.button("🟢 Authentic Benchmark"):
-            random_img = get_random_image("assets/real")
+            # Updated path to match your nested folders
+            random_img = get_random_image("assets/assets/real")
             if random_img:
                 st.session_state.benchmark_image_path = random_img
                 st.session_state.shap_executed = False # Reset SHAP for new image
                 
     with sample_col2:
         if st.button("🔴 Deepfake Benchmark"):
-            random_img = get_random_image("assets/fake")
+            # Updated path to match your nested folders
+            random_img = get_random_image("assets/assets/fake")
             if random_img:
                 st.session_state.benchmark_image_path = random_img
                 st.session_state.shap_executed = False 
                 
     with sample_col3:
         if st.button("🟡 Edge-Case Benchmark"):
-            random_img = get_random_image("assets/edge")
+            # Updated path to match your nested folders
+            random_img = get_random_image("assets/assets/edge")
             if random_img:
                 st.session_state.benchmark_image_path = random_img
                 st.session_state.shap_executed = False 
